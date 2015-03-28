@@ -31,7 +31,7 @@ public class MultiDeserialiser {
         return objects;
     }
 
-    public void deserialise(byte[] bytes){
+    public void deserialise(byte[] bytes) throws ClassNotFoundException{
         int pos = 0;
         while (pos != bytes.length) {
 

@@ -57,11 +57,11 @@ public class ByteFunctions {
         return serialize(obj, false);
     }
 
-    public static <T extends Serializable> T deSerialize(byte[] bytes, Class<T> clazz) {
+    public static <T extends Serializable> T deSerialize(byte[] bytes, Class<T> clazz) throws ClassNotFoundException {
         try (ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
                 ObjectInputStream objectinputstream = new ObjectInputStream(bais)) {
             return (T) objectinputstream.readObject();
-        } catch (IOException | ClassNotFoundException ex) {
+        } catch (IOException ex) {
             ex.printStackTrace(); // wont happen
             return null;
         }

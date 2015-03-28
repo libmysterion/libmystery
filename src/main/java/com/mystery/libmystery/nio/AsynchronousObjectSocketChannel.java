@@ -5,6 +5,8 @@ import com.mystery.libmystery.bytes.IObjectSerialiser;
 import com.mystery.libmystery.bytes.MultiDeserialiser;
 import java.io.IOException;
 import java.io.Serializable;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
@@ -156,6 +158,7 @@ public class AsynchronousObjectSocketChannel {
             }
         } catch (Exception e) {
             e.printStackTrace();
+            // todo callout to some kindof erback which we can atach to client/server
         }
 
     }
@@ -167,7 +170,7 @@ public class AsynchronousObjectSocketChannel {
         return this.handlers.get(clazz);
     }
 
-    void onDisconnect(Runnable r){
+    public void onDisconnect(Runnable r){
         this.disconnectHandlers.add(r);
     }
     
@@ -208,6 +211,19 @@ public class AsynchronousObjectSocketChannel {
             }
 
         });
+        
+        
+    }
+
+  
+    public String getHostName(){
+        try {
+            InetSocketAddress remoteAddress = (InetSocketAddress) this.channel.getRemoteAddress();
+            String hostString = remoteAddress.getHostString();
+            return hostString;
+        } catch (IOException ex) {
+            return "unknown-host";
+        }
     }
 
     

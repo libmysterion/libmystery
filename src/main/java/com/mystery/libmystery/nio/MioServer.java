@@ -65,7 +65,7 @@ public class MioServer implements AutoCloseable {
         errorHandlers.add(handler);
         return this;
     }
-
+    
     private AsynchronousObjectSocketChannel addClientChannel(AsynchronousSocketChannel clientChannel) {
         AsynchronousObjectSocketChannel client = new AsynchronousObjectSocketChannel(this.executor, clientChannel, IObjectSerialiser.simple, IObjectDeserialiser.simple, this.clientBufferSize);
         synchronized (this.clients) {

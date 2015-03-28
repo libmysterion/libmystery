@@ -19,15 +19,16 @@ public class EncryptedObjectDeserialiser implements IObjectDeserialiser {
     
     @Override
     public Serializable deserialise(byte[] objectByes){
-        try {
-            SymmetricDecrypter decrypter = new SymmetricDecrypter(key);
-            byte[] objectBytes = decrypter.decrypt(objectByes);
-            return deSerialize(objectBytes, Serializable.class);
-        } catch (EncryptionException ex) {
-            ex.printStackTrace();
-            return null;
-            // fuck it...it will happen but not on happy path
-        }
+        return null;
+//        try {
+//            SymmetricDecrypter decrypter = new SymmetricDecrypter(key);
+//            byte[] objectBytes = decrypter.decrypt(objectByes);
+//            return deSerialize(objectBytes, Serializable.class);
+//        } catch (EncryptionException ex) {
+//            ex.printStackTrace();
+//            return null;
+//            // fuck it...it will happen but not on happy path
+//        }
     }
     
 }
