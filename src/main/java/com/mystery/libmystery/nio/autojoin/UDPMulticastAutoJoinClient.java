@@ -7,14 +7,14 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 
-public class AutoJoinClient extends Thread {
+public class UDPMulticastAutoJoinClient extends Thread {
 
     boolean stop = false;
 
     private String app;
     private Callback<InetSocketAddress> callback;
 
-    public AutoJoinClient(String app, Callback<InetSocketAddress> callback) {
+    public UDPMulticastAutoJoinClient(String app, Callback<InetSocketAddress> callback) {
         this.app = app;
         this.callback = callback;
     }    
@@ -28,7 +28,7 @@ public class AutoJoinClient extends Thread {
         do {
             try {
                 MulticastSocket socket = new MulticastSocket(4446);
-                InetAddress group = InetAddress.getByName("228.5.6.7");
+                InetAddress group = InetAddress.getByName("224.0.0.3");
                 socket.joinGroup(group);
                 
                 byte[] buf = new byte[256];
@@ -36,7 +36,7 @@ public class AutoJoinClient extends Thread {
                 socket.receive(packet);
                 String received = new String(packet.getData());
                 
-                String[] split = received.split(AutoJoinerServer.SEP);
+                String[] split = received.split(UDPMulticastAutoJoinerServer.SEP);
                 if (split.length==2) {
                     String msgApp = split[0];
                     
@@ -52,5 +52,12 @@ public class AutoJoinClient extends Thread {
             }
 
         } while (!stop);
+    }
+    
+    public static void main(String[] args) {
+        new UDPMulticastAutoJoinClient("test", (a)->{
+            System.out.println("found app at...");
+            System.out.println(a);
+        }).start();
     }
 }
