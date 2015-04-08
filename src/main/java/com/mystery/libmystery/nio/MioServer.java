@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.stream.Stream;
 
 public class MioServer implements AutoCloseable {
 
@@ -22,8 +24,18 @@ public class MioServer implements AutoCloseable {
     private final int clientBufferSize;
     private static final int DEFAULT_CLIENT_BUFFER_SIZE = 4096;
 
+    private boolean manageExecutors = false;
+    
     public MioServer() {
-        this(Executors.newCachedThreadPool(), DEFAULT_CLIENT_BUFFER_SIZE);
+        this(Executors.newCachedThreadPool(MioServer::createThread), DEFAULT_CLIENT_BUFFER_SIZE);
+        this.manageExecutors = true;
+    }
+    
+    private static int threadCount;
+    private static Thread createThread(Runnable r){
+        Thread t = new Thread(r);
+        t.setName("MioServer-" + (threadCount++));
+        return t;
     }
 
     public MioServer(ExecutorService executor) {
@@ -31,7 +43,8 @@ public class MioServer implements AutoCloseable {
     }
 
     public MioServer(int clientBufferSize) {
-        this(Executors.newCachedThreadPool(), clientBufferSize);
+        this(Executors.newCachedThreadPool(MioServer::createThread), clientBufferSize);
+        this.manageExecutors = true;
     }
 
     public MioServer(ExecutorService executor, int clientBufferSize) {
@@ -86,6 +99,12 @@ public class MioServer implements AutoCloseable {
         client.startReading();
     }
 
+    public Stream<AsynchronousObjectSocketChannel> getClients() {
+        return clients.stream();
+    }
+    
+    
+
     private void acceptConnection() {
 
         channel.accept(null, new CompletionHandler<AsynchronousSocketChannel, Void>() {
@@ -114,6 +133,10 @@ public class MioServer implements AutoCloseable {
         // disconenect any connected clients
         for(AsynchronousObjectSocketChannel ch : this.clients){
             ch.close();
+        }
+        
+        if(manageExecutors){
+            this.executor.shutdown();
         }
     }
 
