@@ -25,7 +25,7 @@ public class NioClient implements AutoCloseable {
     private final int readBufferSize;
     private final Object handlerMonitor = new Object();
     private final HashMap<Class, List<MessageHandler>> pendingHandlers = new HashMap<>();
-    private final List<Runnable> disconnectHandlers = new ArrayList<>();
+    private final List<Callback<AsynchronousObjectSocketChannel>> disconnectHandlers = new ArrayList<>();
 
     
     public NioClient() {
@@ -60,7 +60,7 @@ public class NioClient implements AutoCloseable {
         }
     }
 
-    public void onDisconnect(Runnable callback) {
+    public void onDisconnect(Callback<AsynchronousObjectSocketChannel> callback) {
         disconnectHandlers.add(callback);
         
         if(this.server !=null){

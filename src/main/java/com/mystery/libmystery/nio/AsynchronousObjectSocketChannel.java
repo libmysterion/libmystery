@@ -6,7 +6,6 @@ import com.mystery.libmystery.bytes.MultiDeserialiser;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
@@ -15,8 +14,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class AsynchronousObjectSocketChannel {
 
@@ -35,7 +32,7 @@ public class AsynchronousObjectSocketChannel {
     private Errback exceptionHandler;
 
     private final ArrayDeque<PendingWrite> writeQueue = new ArrayDeque<>();
-    private final List<Runnable> disconnectHandlers = new ArrayList<>();
+    private final List<Callback<AsynchronousObjectSocketChannel>> disconnectHandlers = new ArrayList<>();
 
     public AsynchronousObjectSocketChannel(ExecutorService executor, AsynchronousSocketChannel channel, IObjectSerialiser serialiser, IObjectDeserialiser deserialiser, int readBufferSize) {
         this.channel = channel;
@@ -170,7 +167,7 @@ public class AsynchronousObjectSocketChannel {
         return this.handlers.get(clazz);
     }
 
-    public void onDisconnect(Runnable r){
+    public void onDisconnect(Callback<AsynchronousObjectSocketChannel> r){
         this.disconnectHandlers.add(r);
     }
     
@@ -193,17 +190,15 @@ public class AsynchronousObjectSocketChannel {
                                     channel.close();
                                 } catch (IOException ignore) {
                                 }
-                                disconnectHandlers.forEach((h) -> h.run());
+                                // dunno if i want this one
+                                //disconnectHandlers.forEach((h) -> h.run());
                             }
                         });
                     }
 
                     @Override
-                    public void failed(Throwable exc, Void attachment) {
-                        if (exceptionHandler != null) {
-                            startReading(); // TODO...i should perhaps stop trying to read here since it will probably go nuts
-                            exceptionHandler.onFailure(exc);
-                        }
+                    public void failed(Throwable exc, Void attachment) {                        
+                        disconnectHandlers.forEach((d) -> d.onSuccess(AsynchronousObjectSocketChannel.this));
                     }
                 });
             } catch (Exception e) {

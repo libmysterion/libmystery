@@ -24,7 +24,7 @@ public class MioServerTest {
     }
 
     static ExecutorService executor = Executors.newCachedThreadPool();
-    
+
     @BeforeClass
     public static void setUpClass() {
         executor = Executors.newCachedThreadPool();
@@ -65,7 +65,7 @@ public class MioServerTest {
             Void get = connect.get(); // block here until connection is all done
         }// IMPORTANT - AutoCloseable.close is invoked here
         // when that happens the pending accept callsback with failed cos the channel closed
-        
+
         synchronized (monitor) {
             monitor.wait();
         }
@@ -489,15 +489,46 @@ public class MioServerTest {
 
     }
 
+    @Test
+    public void testOnDisconnect() throws Exception {
+        System.out.println("testOnDisconnect");
+        final Object monitor = new Object();
+        int port = 1010;
+        try (MioServer server = new MioServer(executor);) {
+            AsynchronousSocketChannel clientChannel = AsynchronousSocketChannel.open();
+
+            server.onConnection((client) -> {
+
+                client.onDisconnect((c) -> {
+                    synchronized (monitor) {
+                        monitor.notify();
+                    }
+                });
+
+            });
+
+            server.listen(port);
+            Future<Void> connect = clientChannel.connect(new InetSocketAddress("localhost", port));
+            Void get = connect.get(); // block here until connection is all done
+            AsynchronousObjectSocketChannel clientObjectChannel = new AsynchronousObjectSocketChannel(executor, clientChannel, IObjectSerialiser.simple, IObjectDeserialiser.simple);
+
+            clientObjectChannel.startReading();
+            clientObjectChannel.send(new TestMessage(5, 8));
+
+            clientChannel.close();
+
+            synchronized (monitor) {
+                monitor.wait();
+            }
+        }
+    }
+
     // todo
     // add tests for lots of users * lots of messages
     // add the mioclient with the nice API where you get a server passed to your onconnect callback
-   
     // stick nio onto github
     // add ability to tell server to send a message to a specific client
     // implement synergy in java
-    
     // add broadcast function to server
     // add key exchange logic + encryption serialisation
-    
 }

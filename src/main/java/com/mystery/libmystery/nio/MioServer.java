@@ -104,6 +104,12 @@ public class MioServer implements AutoCloseable {
     }
     
     
+    private void onClientDisconnect(AsynchronousObjectSocketChannel client){
+        synchronized (this.clients) {
+            this.clients.remove(client);
+        }
+    }
+    
 
     private void acceptConnection() {
 
@@ -112,7 +118,8 @@ public class MioServer implements AutoCloseable {
             public void completed(AsynchronousSocketChannel channel, Void attachment) {
                 executor.submit(() -> {
                     acceptConnection();
-                    AsynchronousObjectSocketChannel client = addClientChannel(channel);
+                    AsynchronousObjectSocketChannel client = addClientChannel(channel);                
+                    client.onDisconnect(MioServer.this::onClientDisconnect);
                     dispatchConnectionEvent(client);
                     beginSocketReading(client); /// now that the message handlers are added
                 });

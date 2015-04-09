@@ -81,7 +81,7 @@ public class NioClientTest {
                     }
                 });
 
-        client.onDisconnect(() -> {
+        client.onDisconnect((c) -> {
             synchronized (monitor) {
                 monitor.notify();
             }
