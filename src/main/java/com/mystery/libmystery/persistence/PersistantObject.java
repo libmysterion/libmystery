@@ -15,10 +15,18 @@ public class PersistantObject implements Serializable {
     
     private transient String path;
     
+   
     public PersistantObject(String path) {
-        this.path = path;
-        loadIfExisting();
+        this(path, true);
     }
+    
+    public PersistantObject(String path, boolean load) {
+        this.path = path;
+        if(load){
+            loadIfExisting();
+        }
+    }
+    
 
     private void loadIfExisting() {
         File file = new File(path);
