@@ -17,7 +17,9 @@ public class NioClientTest {
 
     @BeforeClass
     public static void setUpClass() {
-        executor = Executors.newCachedThreadPool();
+        executor = Executors.newCachedThreadPool((r)->{
+            return new Thread(r, "NioClientTest");
+        });
     }
 
     @AfterClass

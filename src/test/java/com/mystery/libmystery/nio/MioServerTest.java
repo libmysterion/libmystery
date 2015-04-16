@@ -4,33 +4,31 @@ import com.mystery.libmystery.bytes.IObjectDeserialiser;
 import com.mystery.libmystery.bytes.IObjectSerialiser;
 import java.net.InetSocketAddress;
 import java.nio.channels.AsynchronousSocketChannel;
-import java.nio.channels.ClosedChannelException;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import org.hamcrest.CoreMatchers;
+import static org.hamcrest.CoreMatchers.is;
 import org.junit.After;
 import org.junit.AfterClass;
-import org.junit.Assert;
 import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThat;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.junit.matchers.JUnitMatchers;
 
 public class MioServerTest {
 
     public MioServerTest() {
     }
 
-    static ExecutorService executor = Executors.newCachedThreadPool();
+    static ExecutorService executor;
 
     @BeforeClass
     public static void setUpClass() {
-        executor = Executors.newCachedThreadPool();
+        executor = Executors.newCachedThreadPool((r) -> {
+            return new Thread(r, "MioServerTest");
+        });
     }
 
     @AfterClass
@@ -47,15 +45,16 @@ public class MioServerTest {
     public void tearDown() {
     }
 
-   @Test(timeout = 5000)
+    @Test(timeout = 5000)
     public void testServerErrorEvent() throws Exception {
         System.out.println("testServerErrorEvent");
         final Object monitor = new Object();
         int port = 1000;
         try (MioServer server = new MioServer(executor);) {
             server.onConnection((client) -> {
-              
+
             }).onError((ex) -> {
+                assertThat(Thread.currentThread().getName(), is("MioServerTest"));
                 assertNotNull(ex);
                 synchronized (monitor) {
                     monitor.notify();
@@ -84,6 +83,9 @@ public class MioServerTest {
         int port = 1000;
         try (MioServer server = new MioServer(executor);) {
             server.onConnection((client) -> {
+
+                assertThat(Thread.currentThread().getName(), is("MioServerTest"));
+
                 synchronized (monitor) {
                     monitor.notify();
                 }
@@ -171,6 +173,8 @@ public class MioServerTest {
         try (MioServer server = new MioServer(executor);) {
             server.onConnection((client) -> {
                 client.onMessage(TestMessage.class, (msg) -> {
+                    assertThat(Thread.currentThread().getName(), is("MioServerTest"));
+
                     synchronized (monitor) {
                         monitor.notify();
                     }
@@ -271,7 +275,7 @@ public class MioServerTest {
         }
 
     }
-    
+
     @Test
     public void testSending_1000_Message() throws Exception {
         System.out.println("testSending_1000_Message");
@@ -503,6 +507,9 @@ public class MioServerTest {
             server.onConnection((client) -> {
 
                 client.onDisconnect((c) -> {
+
+                    assertThat(Thread.currentThread().getName(), is("MioServerTest"));
+
                     synchronized (monitor) {
                         monitor.notify();
                     }

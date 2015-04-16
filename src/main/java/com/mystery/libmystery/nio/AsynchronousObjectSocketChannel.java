@@ -10,7 +10,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
@@ -32,10 +31,8 @@ public class AsynchronousObjectSocketChannel {
 
     private final ArrayDeque<PendingWrite> writeQueue = new ArrayDeque<>();
     //private final List<Callback<AsynchronousObjectSocketChannel>> disconnectHandlers = new ArrayList<>();
-    
+
     private DisconnectHandlerList disconnectHandlers;
-    
-            
 
     public AsynchronousObjectSocketChannel(ExecutorService executor, AsynchronousSocketChannel channel, IObjectSerialiser serialiser, IObjectDeserialiser deserialiser, int readBufferSize) {
         this.channel = channel;
@@ -69,35 +66,32 @@ public class AsynchronousObjectSocketChannel {
                         // todo... apparently this can be a parial write completed
                         // i.e. 
                         if (result != serialised.length) {
-                            try{
+                            try {
                                 throw new Exception("partial wirte detecgted");
-                            }catch(Exception e){
+                            } catch (Exception e) {
                                 e.printStackTrace();
                             }
                         }
-                        
+
                         //System.out.println("write complete");
-                        executor.submit(() -> {
-                            synchronized (writeQueue) {
-                                writeQueue.remove();
+                        synchronized (writeQueue) {
+                            writeQueue.remove();
                                 //  before it will pick up the next task there needs to have been a thread available to do the removing
-                                // thats maybe better than syncing on the jvm callback thread
-                            }
-                            nextWrite();
-                            write.getCallbacks().doSuccess();
-                        });
+                            // thats maybe better than syncing on the jvm callback thread
+                        }
+                        nextWrite();
+                        write.getCallbacks().doSuccess();
+
                     }
 
                     @Override
                     public void failed(Throwable exc, Void attachment) {
                         //System.out.println("write failed");
-                        executor.submit(() -> {
-                            synchronized (writeQueue) {
-                                writeQueue.remove();
-                            }
-                            nextWrite();
-                            write.getCallbacks().doError(exc);
-                        });
+                        synchronized (writeQueue) {
+                            writeQueue.remove();
+                        }
+                        nextWrite();
+                        write.getCallbacks().doError(exc);
                     }
                 });
             } catch (Exception e) {
@@ -158,38 +152,38 @@ public class AsynchronousObjectSocketChannel {
 
     }
 
-    public void onDisconnect(DisconnectHandler r){
+    public void onDisconnect(DisconnectHandler r) {
         this.getDisconnectHandlers().put(r);
     }
-  
-    private  <T extends Serializable> void _onMessage(Class<T> clazz, Handler<T> handler) { 
+
+    private <T extends Serializable> void _onMessage(Class<T> clazz, Handler<T> handler) {
         messageHandlers.put(clazz, handler);
     }
-    
-    public <T extends Serializable> void onMessage(Class<T> clazz, WeakHandler<T> handler) { 
+
+    public <T extends Serializable> void onMessage(Class<T> clazz, WeakHandler<T> handler) {
         this._onMessage(clazz, handler);
     }
-    
-    public <T extends Serializable> void onMessage(Class<T> clazz, MessageHandler<T> handler) { 
+
+    public <T extends Serializable> void onMessage(Class<T> clazz, MessageHandler<T> handler) {
         this._onMessage(clazz, handler);
     }
-    
+
     void startReading() {
         this.executor.submit(() -> {
             try {
                 channel.read(readBuffer, this, new CompletionHandler<Integer, AsynchronousObjectSocketChannel>() {
                     @Override
                     public void completed(Integer result, AsynchronousObjectSocketChannel attachment) {
-                            if(result != -1){
-                                readObjects(result);
-                                startReading();
-                            } else {
-                                try {
-                                    channel.close();
-                                } catch (IOException ignore) {
-                                }
-                                getDisconnectHandlers().handle(attachment);  // if closed by remote
+                        if (result != -1) {
+                            readObjects(result);
+                            startReading();
+                        } else {
+                            try {
+                                channel.close();
+                            } catch (IOException ignore) {
                             }
+                            getDisconnectHandlers().handle(attachment);  // if closed by remote
+                        }
                     }
 
                     @Override
@@ -207,12 +201,10 @@ public class AsynchronousObjectSocketChannel {
             }
 
         });
-        
-        
+
     }
 
-  
-    public String getHostName(){
+    public String getHostName() {
         try {
             InetSocketAddress remoteAddress = (InetSocketAddress) this.channel.getRemoteAddress();
             String hostString = remoteAddress.getHostString();
@@ -222,7 +214,6 @@ public class AsynchronousObjectSocketChannel {
         }
     }
 
-    
     void close() throws Exception {
         this.channel.close();
     }
@@ -230,9 +221,9 @@ public class AsynchronousObjectSocketChannel {
     void setDisconnectHandlers(DisconnectHandlerList disconnectHandlers) {
         this.disconnectHandlers = disconnectHandlers;
     }
-    
+
     private DisconnectHandlerList getDisconnectHandlers() {
-        if(disconnectHandlers == null){
+        if (disconnectHandlers == null) {
             disconnectHandlers = new DisconnectHandlerList();
         }
         return disconnectHandlers;

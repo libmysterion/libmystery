@@ -3,11 +3,12 @@ package com.mystery.libmystery.nio;
 import com.mystery.libmystery.bytes.IObjectDeserialiser;
 import com.mystery.libmystery.bytes.IObjectSerialiser;
 import java.io.IOException;
-import java.lang.ref.WeakReference;
 import java.net.InetSocketAddress;
+import java.nio.channels.AsynchronousChannelGroup;
 import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
+import java.nio.channels.spi.AsynchronousChannelProvider;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -57,7 +58,9 @@ public class MioServer implements AutoCloseable {
         if (this.channel != null) {
             throw new IllegalStateException("server is already started");
         }
-        this.channel = AsynchronousServerSocketChannel.open().bind(socketAddress);
+        AsynchronousChannelProvider defaultProvider = AsynchronousChannelProvider.provider();
+        AsynchronousChannelGroup group = defaultProvider.openAsynchronousChannelGroup(executor, 0);
+        this.channel = AsynchronousServerSocketChannel.open(group).bind(socketAddress);
         this.acceptConnection();
     }
 

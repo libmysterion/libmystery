@@ -5,8 +5,10 @@ import com.mystery.libmystery.bytes.IObjectSerialiser;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.InetSocketAddress;
+import java.nio.channels.AsynchronousChannelGroup;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
+import java.nio.channels.spi.AsynchronousChannelProvider;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -22,10 +24,9 @@ public class NioClient implements AutoCloseable {
     private final int readBufferSize;
     private final Object handlerMonitor = new Object();
     private final HashMap<Class, List<MessageHandler>> pendingHandlers = new HashMap<>();
-    
+
     private final DisconnectHandlerList disconnectHandlers = new DisconnectHandlerList();
 
-    
     public NioClient() {
         this(Executors.newCachedThreadPool(), DEFAULT_BUFFER_SIZE);
     }
@@ -59,7 +60,7 @@ public class NioClient implements AutoCloseable {
     }
 
     public void onDisconnect(DisconnectHandler handler) {
-        synchronized(disconnectHandlers){
+        synchronized (disconnectHandlers) {
             disconnectHandlers.put(handler);
         }
     }
@@ -71,33 +72,27 @@ public class NioClient implements AutoCloseable {
                 if (this.channel != null && this.channel.isOpen()) {
                     this.channel.close(); // auto disconnect if already connected
                 }
-                this.channel = AsynchronousSocketChannel.open();
+        
+                AsynchronousChannelProvider defaultProvider = AsynchronousChannelProvider.provider();
+                AsynchronousChannelGroup group = defaultProvider.openAsynchronousChannelGroup(executor, 0);
+                this.channel = AsynchronousSocketChannel.open(group);
                 this.server = new AsynchronousObjectSocketChannel(executor, channel, IObjectSerialiser.simple, IObjectDeserialiser.simple);
                 server.setDisconnectHandlers(this.disconnectHandlers);
                 channel.connect(socketAddress, null, new CompletionHandler<Void, Void>() {
                     @Override
                     public void completed(Void result, Void attachment) {
-                       
-                        executor.submit(() -> {
-                            synchronized (handlerMonitor) {
-                                pendingHandlers.forEach((k, v) -> {
-                                    v.forEach((h) -> server.onMessage(k, h));   // apply any message handlers
-                                });
-                            }
-                            
-                            server.startReading();
-                            executor.submit(() -> {
-                                rv.doSuccess();
+                        synchronized (handlerMonitor) {
+                            pendingHandlers.forEach((k, v) -> {
+                                v.forEach((h) -> server.onMessage(k, h));   // apply any message handlers
                             });
-
-                        });
+                        }
+                        server.startReading();
+                        rv.doSuccess();
                     }
 
                     @Override
                     public void failed(Throwable exc, Void attachment) {
-                        executor.submit(() -> {
-                            rv.doError(exc);
-                        });
+                        rv.doError(exc);
                     }
                 });
             } catch (Exception e) {
@@ -107,12 +102,12 @@ public class NioClient implements AutoCloseable {
         return rv;
     }
 
-    public CallbackErrbackTuple send(Serializable obj){
+    public CallbackErrbackTuple send(Serializable obj) {
         // todo enque these messages and send them once a connection is established
         // we will just NPE like this
         return this.server.send(obj);
     }
-    
+
     public CallbackErrbackTuple connect(String serverAddress, int port) throws IOException {
         return this.connect(new InetSocketAddress(serverAddress, port));
     }
