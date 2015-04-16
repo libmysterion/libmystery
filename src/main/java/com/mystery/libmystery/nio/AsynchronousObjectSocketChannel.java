@@ -11,7 +11,6 @@ import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
@@ -28,11 +27,15 @@ public class AsynchronousObjectSocketChannel {
 
     private final ExecutorService executor;
 
-    private final HashMap<Class<? extends Serializable>, List<MessageHandler>> handlers = new HashMap<>();
+    private HandlerMap messageHandlers = new HandlerMap();
     private Errback exceptionHandler;
 
     private final ArrayDeque<PendingWrite> writeQueue = new ArrayDeque<>();
-    private final List<Callback<AsynchronousObjectSocketChannel>> disconnectHandlers = new ArrayList<>();
+    //private final List<Callback<AsynchronousObjectSocketChannel>> disconnectHandlers = new ArrayList<>();
+    
+    private DisconnectHandlerList disconnectHandlers;
+    
+            
 
     public AsynchronousObjectSocketChannel(ExecutorService executor, AsynchronousSocketChannel channel, IObjectSerialiser serialiser, IObjectDeserialiser deserialiser, int readBufferSize) {
         this.channel = channel;
@@ -131,12 +134,7 @@ public class AsynchronousObjectSocketChannel {
 //                System.out.println("read " + objects.size() + " objects");
                 if (!objects.isEmpty()) {
                     objects.forEach((msg) -> {
-                        List<MessageHandler> handlerList = this.getHandlerList(msg.getClass());
-                        if (handlerList.isEmpty()) {
-                            throw new IllegalStateException("No handler specified for recieved message of class " + msg.getClass());
-                        } else {
-                            handlerList.forEach((h) -> h.handleMessage(msg));
-                        }
+                        this.messageHandlers.handle(msg);
                     });
 
                 }
@@ -160,28 +158,28 @@ public class AsynchronousObjectSocketChannel {
 
     }
 
-    private List<MessageHandler> getHandlerList(Class clazz) {
-        if (this.handlers.get(clazz) == null) {
-            this.handlers.put(clazz, new ArrayList<>());
-        }
-        return this.handlers.get(clazz);
+    public void onDisconnect(DisconnectHandler r){
+        this.getDisconnectHandlers().put(r);
     }
-
-    public void onDisconnect(Callback<AsynchronousObjectSocketChannel> r){
-        this.disconnectHandlers.add(r);
+  
+    private  <T extends Serializable> void _onMessage(Class<T> clazz, Handler<T> handler) { 
+        messageHandlers.put(clazz, handler);
     }
     
-    public <T extends Serializable> void onMessage(Class<T> clazz, MessageHandler<T> handler) {
-        getHandlerList(clazz).add(handler);
+    public <T extends Serializable> void onMessage(Class<T> clazz, WeakHandler<T> handler) { 
+        this._onMessage(clazz, handler);
     }
-
+    
+    public <T extends Serializable> void onMessage(Class<T> clazz, MessageHandler<T> handler) { 
+        this._onMessage(clazz, handler);
+    }
+    
     void startReading() {
         this.executor.submit(() -> {
             try {
-                channel.read(readBuffer, null, new CompletionHandler<Integer, Void>() {
+                channel.read(readBuffer, this, new CompletionHandler<Integer, AsynchronousObjectSocketChannel>() {
                     @Override
-                    public void completed(Integer result, Void attachment) {
-                        executor.submit(() -> {
+                    public void completed(Integer result, AsynchronousObjectSocketChannel attachment) {
                             if(result != -1){
                                 readObjects(result);
                                 startReading();
@@ -190,15 +188,18 @@ public class AsynchronousObjectSocketChannel {
                                     channel.close();
                                 } catch (IOException ignore) {
                                 }
-                                // dunno if i want this one
-                                //disconnectHandlers.forEach((h) -> h.run());
+                                getDisconnectHandlers().handle(attachment);  // if closed by remote
                             }
-                        });
                     }
 
                     @Override
-                    public void failed(Throwable exc, Void attachment) {                        
-                        disconnectHandlers.forEach((d) -> d.onSuccess(AsynchronousObjectSocketChannel.this));
+                    public void failed(Throwable exc, AsynchronousObjectSocketChannel attachment) { // if closed locally 
+                        getDisconnectHandlers().handle(AsynchronousObjectSocketChannel.this);
+                        try {
+                            AsynchronousObjectSocketChannel.this.close();
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
                     }
                 });
             } catch (Exception e) {
@@ -224,6 +225,17 @@ public class AsynchronousObjectSocketChannel {
     
     void close() throws Exception {
         this.channel.close();
+    }
+
+    void setDisconnectHandlers(DisconnectHandlerList disconnectHandlers) {
+        this.disconnectHandlers = disconnectHandlers;
+    }
+    
+    private DisconnectHandlerList getDisconnectHandlers() {
+        if(disconnectHandlers == null){
+            disconnectHandlers = new DisconnectHandlerList();
+        }
+        return disconnectHandlers;
     }
 
 }

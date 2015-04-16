@@ -9,14 +9,17 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import org.hamcrest.CoreMatchers;
 import org.junit.After;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.matchers.JUnitMatchers;
 
 public class MioServerTest {
 
@@ -44,16 +47,15 @@ public class MioServerTest {
     public void tearDown() {
     }
 
-    @Test
+   @Test(timeout = 5000)
     public void testServerErrorEvent() throws Exception {
         System.out.println("testServerErrorEvent");
         final Object monitor = new Object();
         int port = 1000;
         try (MioServer server = new MioServer(executor);) {
             server.onConnection((client) -> {
-
+              
             }).onError((ex) -> {
-                assertEquals(ex.getClass(), ClosedChannelException.class);
                 assertNotNull(ex);
                 synchronized (monitor) {
                     monitor.notify();
@@ -75,7 +77,7 @@ public class MioServerTest {
     /**
      * Test of onConnection method, of class MioServer.
      */
-    @Test
+    @Test(timeout = 3500)
     public void testConnectingSingleClient() throws Exception {
         System.out.println("testConnectingSingleClient");
         final Object monitor = new Object();
@@ -100,7 +102,7 @@ public class MioServerTest {
 
     int count = 0;
 
-    @Test
+    @Test(timeout = 3500)
     public void testConnecting_10_Clients() throws Exception {
         System.out.println("testConnecting_10_Clients");
         final Object monitor = new Object();
@@ -127,7 +129,8 @@ public class MioServerTest {
         }
     }
 
-    @Test   // this test seems to hang at around 9700 connection if the buffer size is not specified
+    @Test(timeout = 3500)
+    // this test seems to hang at around 9700 connection if the buffer size is not specified
     // based on that ....probs a memeory issue
     //im worried thate error is never reported....seems i might be easting it somewhere
     public void testConnecting_10000_Clients() throws Exception {
@@ -160,7 +163,7 @@ public class MioServerTest {
         }
     }
 
-    @Test
+    @Test(timeout = 3500)
     public void testSendingSingleMessage() throws Exception {
         System.out.println("testSendingSingleMessage");
         final Object monitor = new Object();
@@ -190,7 +193,7 @@ public class MioServerTest {
 
     }
 
-    @Test
+    @Test(timeout = 3500)
     public void testSendingSingle_Large_Message() throws Exception {
         System.out.println("testSendingSingle_Large_Message");
         final Object monitor = new Object();
@@ -231,7 +234,7 @@ public class MioServerTest {
 
     }
 
-    @Test
+    @Test(timeout = 3500)
     public void testSending_10_Message() throws Exception {
         System.out.println("testSending_10_Message");
         final Object monitor = new Object();
@@ -268,7 +271,7 @@ public class MioServerTest {
         }
 
     }
-
+    
     @Test
     public void testSending_1000_Message() throws Exception {
         System.out.println("testSending_1000_Message");
@@ -306,7 +309,7 @@ public class MioServerTest {
 
     }
 
-    @Test
+    @Test(timeout = 3500)
     public void testSending_10_000_Message() throws Exception {
         System.out.println("testSending_10_000_Message");
         final Object monitor = new Object();
@@ -348,7 +351,7 @@ public class MioServerTest {
 
     }
 
-    @Test
+    @Test(timeout = 3500)
     public void testClientResponding() throws Exception {
         System.out.println("testClientResponding");
         final Object monitor = new Object();
@@ -385,7 +388,7 @@ public class MioServerTest {
 
     }
 
-    @Test
+    @Test(timeout = 3500)
     public void testPingPongServer() throws Exception {
         System.out.println("testPingPongServer");
         final Object monitor = new Object();
@@ -437,7 +440,7 @@ public class MioServerTest {
 
     }
 
-    @Test
+    @Test(timeout = 3500)
     public void testClientDisconnecting() throws Exception {
         System.out.println("testClientDisconnecting");
         final Object monitor = new Object();
@@ -489,7 +492,7 @@ public class MioServerTest {
 
     }
 
-    @Test
+    @Test(timeout = 3500)
     public void testOnDisconnect() throws Exception {
         System.out.println("testOnDisconnect");
         final Object monitor = new Object();
@@ -510,6 +513,7 @@ public class MioServerTest {
             server.listen(port);
             Future<Void> connect = clientChannel.connect(new InetSocketAddress("localhost", port));
             Void get = connect.get(); // block here until connection is all done
+            Thread.sleep(500);
             AsynchronousObjectSocketChannel clientObjectChannel = new AsynchronousObjectSocketChannel(executor, clientChannel, IObjectSerialiser.simple, IObjectDeserialiser.simple);
 
             clientObjectChannel.startReading();

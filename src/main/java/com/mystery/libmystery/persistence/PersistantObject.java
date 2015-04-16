@@ -39,7 +39,7 @@ public class PersistantObject implements Serializable {
             try {
                 Object read = new ObjectReader(path).read();
                 
-                if(read.getClass() != this.getClass()){
+                if(read == null || read.getClass() != this.getClass()){
                     throw new InvalidClassException("The specified file is of a different class: " + read.getClass().getSimpleName() + " != " + this.getClass().getSimpleName());
                 }
                 BeanUtils.copyProperties(this, read);

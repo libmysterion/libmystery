@@ -5,11 +5,8 @@ import com.mystery.libmystery.bytes.IObjectSerialiser;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.InetSocketAddress;
-import java.nio.channels.AsynchronousChannelGroup;
 import java.nio.channels.AsynchronousSocketChannel;
-import java.nio.channels.ClosedChannelException;
 import java.nio.channels.CompletionHandler;
-import java.nio.channels.spi.AsynchronousChannelProvider;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -25,7 +22,8 @@ public class NioClient implements AutoCloseable {
     private final int readBufferSize;
     private final Object handlerMonitor = new Object();
     private final HashMap<Class, List<MessageHandler>> pendingHandlers = new HashMap<>();
-    private final List<Callback<AsynchronousObjectSocketChannel>> disconnectHandlers = new ArrayList<>();
+    
+    private final DisconnectHandlerList disconnectHandlers = new DisconnectHandlerList();
 
     
     public NioClient() {
@@ -60,11 +58,9 @@ public class NioClient implements AutoCloseable {
         }
     }
 
-    public void onDisconnect(Callback<AsynchronousObjectSocketChannel> callback) {
-        disconnectHandlers.add(callback);
-        
-        if(this.server !=null){
-            this.server.onDisconnect(callback);
+    public void onDisconnect(DisconnectHandler handler) {
+        synchronized(disconnectHandlers){
+            disconnectHandlers.put(handler);
         }
     }
 
@@ -75,12 +71,9 @@ public class NioClient implements AutoCloseable {
                 if (this.channel != null && this.channel.isOpen()) {
                     this.channel.close(); // auto disconnect if already connected
                 }
-                AsynchronousChannelGroup g;
-                AsynchronousChannelProvider.provider();
-                
                 this.channel = AsynchronousSocketChannel.open();
                 this.server = new AsynchronousObjectSocketChannel(executor, channel, IObjectSerialiser.simple, IObjectDeserialiser.simple);
-                disconnectHandlers.forEach( (r) -> this.server.onDisconnect(r));
+                server.setDisconnectHandlers(this.disconnectHandlers);
                 channel.connect(socketAddress, null, new CompletionHandler<Void, Void>() {
                     @Override
                     public void completed(Void result, Void attachment) {

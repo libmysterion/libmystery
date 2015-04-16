@@ -1,5 +1,7 @@
 package com.mystery.libmystery.nio;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -8,15 +10,19 @@ import org.junit.Test;
 
 public class NioClientTest {
 
+    private static ExecutorService executor;
+
     public NioClientTest() {
     }
 
     @BeforeClass
     public static void setUpClass() {
+        executor = Executors.newCachedThreadPool();
     }
 
     @AfterClass
     public static void tearDownClass() {
+        executor.shutdown();
     }
 
     int count;
@@ -30,12 +36,12 @@ public class NioClientTest {
     public void tearDown() {
     }
 
-    @Test
+    @Test(timeout = 5000)
     public void testConnectingSuccess() throws Exception {
         final Object monitor = new Object();
         int port = 999;
-        try (MioServer server = new MioServer();
-                NioClient client = new NioClient();) {
+        try (MioServer server = new MioServer(executor);
+                NioClient client = new NioClient(executor);) {
             server.listen(port);
             client.connect("localhost", port).onSucess(() -> {
                 synchronized (monitor) {
@@ -48,11 +54,11 @@ public class NioClientTest {
         }
     }
 
-    @Test
+    @Test(timeout = 3500)
     public void testConnectingFailure() throws Exception {
         final Object monitor = new Object();
         int port = 999;
-        try (NioClient client = new NioClient();) {
+        try (NioClient client = new NioClient(executor);) {
             client.connect("localhost", port).onError((a) -> {
                 synchronized (monitor) {
                     monitor.notify();
@@ -64,22 +70,13 @@ public class NioClientTest {
         }
     }
 
-    @Test
+    @Test(timeout = 5000)
     public void testConnectingDisconnecting() throws Exception {
         final Object monitor = new Object();
         int port = 999;
-        MioServer server = new MioServer();
-        NioClient client = new NioClient();
+        MioServer server = new MioServer(executor);
+        NioClient client = new NioClient(executor);
         server.listen(port);
-
-        client.connect("localhost", port)
-                .onSucess(() -> {
-                    System.out.println("connect success");
-
-                    synchronized (monitor) {
-                        monitor.notify();
-                    }
-                });
 
         client.onDisconnect((c) -> {
             synchronized (monitor) {
@@ -87,24 +84,31 @@ public class NioClientTest {
             }
         });
 
+        client.connect("localhost", port)
+                .onSucess(() -> {
+                    synchronized (monitor) {
+                        monitor.notify();
+                    }
+                });
+
         synchronized (monitor) {
             monitor.wait(); // wait for connect success
         }
 
         server.close();
-
+   
         synchronized (monitor) {
             monitor.wait(); // wait for disconnect event
         }
     }
 
-    @Test
+    @Test(timeout = 3500)
     public void testPingPongClient() throws Exception {
         System.out.println("testPingPongClient");
         final Object monitor = new Object();
         int port = 1009;
-        try (MioServer server = new MioServer();
-                NioClient cli = new NioClient();) {
+        try (MioServer server = new MioServer(executor);
+                NioClient cli = new NioClient(executor);) {
             int msgCount = 5000;
             server.onConnection((client) -> {
                 client.onMessage(TestMessage.class, (msg) -> {
@@ -114,7 +118,7 @@ public class NioClientTest {
             server.listen(port);
             cli.onMessage(TestMessage.class, (msg) -> {
                 cli.send(msg);
-                synchronized(monitor){
+                synchronized (monitor) {
                     if (count++ == msgCount) {
                         monitor.notify();
                     }
@@ -135,7 +139,7 @@ public class NioClientTest {
             // pingpong client test takes 3347ms for 5000 ping pongs (round trips i.e. 2 messages sent) so 10000 messages were sent....get it?
         }
 
-       // todo auto reconnect option on NioClient
+        // todo auto reconnect option on NioClient
         // needs lots of tests to make sure everything still works after reconnecting
         // enqueu messages if attempt to send before connection is established
     }

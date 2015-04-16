@@ -13,7 +13,7 @@ public class TestPersistantObject extends PersistantObject {
     private int number;
     
     public TestPersistantObject() {
-        super("C:\\Test\\test");
+        super("C:\\Test\\test_peristant_object");
     }
 
     public String getField1() {
