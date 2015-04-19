@@ -17,8 +17,12 @@ import java.nio.channels.CompletionHandler;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AsynchronousObjectSocketChannel {
+    
+    public static final Logger logger = LoggerFactory.getLogger(AsynchronousObjectSocketChannel.class);
 
     private final int BUFFER_SIZE;
     private final AsynchronousSocketChannel channel;
@@ -69,11 +73,7 @@ public class AsynchronousObjectSocketChannel {
                         // todo... apparently this can be a parial write completed
                         // i.e. 
                         if (result != serialised.length) {
-                            try {
-                                throw new Exception("partial wirte detecgted");
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
+                            logger.warn("partial write detected");
                         }
 
                         //System.out.println("write complete");
@@ -89,7 +89,7 @@ public class AsynchronousObjectSocketChannel {
 
                     @Override
                     public void failed(Throwable exc, Void attachment) {
-                        //System.out.println("write failed");
+                        logger.debug("write failed", exc);
                         synchronized (writeQueue) {
                             writeQueue.remove();
                         }
@@ -97,8 +97,8 @@ public class AsynchronousObjectSocketChannel {
                         write.getCallbacks().doError(exc);
                     }
                 });
-            } catch (Exception e) {
-                e.printStackTrace();
+            } catch (RuntimeException e) {
+                logger.error("exception writing to channel", e);
             }
         });
     }
@@ -149,9 +149,11 @@ public class AsynchronousObjectSocketChannel {
                 readDataPointer = multiDeserialiser.getRemaining(); // could simply be lenght of read data...
 
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            logger.error("Could not deserialise message", e);
             // todo callout to some kindof erback which we can atach to client/server
+        }catch(Exception e){
+            logger.error("exception reading objects", e);
         }
 
     }
@@ -204,7 +206,8 @@ public class AsynchronousObjectSocketChannel {
                         } else {
                             try {
                                 channel.close();
-                            } catch (IOException ignore) {
+                            } catch (IOException e) {
+                                logger.warn("exception closing channel", e);
                             }
                             emitter.emit("dc", attachment);// if closed by remote
                         }
@@ -216,12 +219,12 @@ public class AsynchronousObjectSocketChannel {
                         try {
                             AsynchronousObjectSocketChannel.this.close();
                         } catch (Exception ex) {
-                            ex.printStackTrace();
+                            logger.warn("exception closing AsynchronousObjectSocketChannel", ex);
                         }
                     }
                 });
             } catch (Exception e) {
-                e.printStackTrace();
+                logger.error("exception reading from channel", e);
             }
 
         });

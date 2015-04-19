@@ -7,8 +7,12 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class NioClientTest {
+
+     public static final Logger logger = LoggerFactory.getLogger(NioClientTest.class);
 
     private static ExecutorService executor;
 
@@ -81,7 +85,7 @@ public class NioClientTest {
         server.listen(port);
 
         client.onDisconnect((c) -> {
-            System.out.println("+++++++++++++++++++HERE");
+            logger.debug("client.onDisconnect");
             synchronized (monitor) {
                 monitor.notify();
             }
@@ -89,7 +93,7 @@ public class NioClientTest {
 
         client.connect("localhost", port)
                 .onSucess(() -> {
-                    System.out.println("-------------------HERE");
+                     logger.debug("client.connect.onSuccess");
                     synchronized (monitor) {
                         monitor.notify();
                     }
@@ -142,6 +146,8 @@ public class NioClientTest {
             System.out.println("pingpong client test takes " + (fin - start) + "ms for " + msgCount + " ping pongs (round trips i.e. 2 messages sent) so " + (msgCount * 2) + " messages were sent....get it?");
             // pingpong client test takes 3265ms for 5000 ping pongs (round trips i.e. 2 messages sent) so 10000 messages were sent....get it?
             // pingpong client test takes 3347ms for 5000 ping pongs (round trips i.e. 2 messages sent) so 10000 messages were sent....get it?
+            // after some tweaks.... prebably due to removal of all the thread switching
+            // pingpong client test takes 954ms for 5000 ping pongs (round trips i.e. 2 messages sent) so 10000 messages were sent....get it?
         }
 
         // todo auto reconnect option on NioClient
