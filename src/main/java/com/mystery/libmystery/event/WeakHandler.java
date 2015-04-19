@@ -1,4 +1,4 @@
-package com.mystery.libmystery.nio;
+package com.mystery.libmystery.event;
 
 import java.lang.ref.WeakReference;
 

@@ -1,7 +1,9 @@
 package com.mystery.libmystery.nio;
 
+import com.mystery.libmystery.event.WeakHandler;
 import com.mystery.libmystery.bytes.IObjectDeserialiser;
 import com.mystery.libmystery.bytes.IObjectSerialiser;
+import com.mystery.libmystery.event.EventEmitter;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.AsynchronousChannelGroup;
@@ -19,8 +21,7 @@ public class MioServer implements AutoCloseable {
 
     private AsynchronousServerSocketChannel channel;
     private ExecutorService executor;
-    private final ConnectionHandlerList connectionHandlers = new ConnectionHandlerList();
-    private final ErrorHandlerList errorHandlers = new ErrorHandlerList();
+    private EventEmitter emitter = new EventEmitter();
     private final List<AsynchronousObjectSocketChannel> clients = new ArrayList<>();
     private final int clientBufferSize;
     private static final int DEFAULT_CLIENT_BUFFER_SIZE = 4096;
@@ -72,14 +73,25 @@ public class MioServer implements AutoCloseable {
         this.listen(new InetSocketAddress(boundAddress, port));
     }
 
-    public MioServer onConnection(ConnectionHandler handler) {
-        connectionHandlers.put(handler);
+    
+    public MioServer onConnection(WeakHandler<AsynchronousObjectSocketChannel> handler) {
+        emitter.on("connection", handler);
         return this;
     }
-
+    
+    public MioServer onConnection(ConnectionHandler handler) {
+        emitter.on("connection", handler);
+        return this;
+    }
+    
+    public MioServer offConnection(ConnectionHandler handler) {
+        emitter.off("connection", handler);
+        return this;
+    }
+    
     // this is really just for disconnect events
     public MioServer onError(ErrorHandler handler) {
-        errorHandlers.put(handler);
+        emitter.on("error", handler);
         return this;
     }
 
@@ -90,10 +102,6 @@ public class MioServer implements AutoCloseable {
             this.clients.add(client);
         }
         return client;
-    }
-
-    private void dispatchConnectionEvent(AsynchronousObjectSocketChannel client) {
-        this.connectionHandlers.handle(client);
     }
 
     private void beginSocketReading(AsynchronousObjectSocketChannel client) {
@@ -118,13 +126,13 @@ public class MioServer implements AutoCloseable {
                 acceptConnection();
                 AsynchronousObjectSocketChannel client = addClientChannel(channel);
                 client.onDisconnect(MioServer.this::onClientDisconnect);
-                dispatchConnectionEvent(client);
+                emitter.emit("connection", client);
                 beginSocketReading(client); /// now that the message handlers are added
             }
 
             @Override
             public void failed(Throwable exc, Void attachment) {
-                errorHandlers.handle(exc);
+                emitter.emit("error", exc);
             }
         });
     }

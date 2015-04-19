@@ -2,6 +2,7 @@ package com.mystery.libmystery.nio;
 
 import com.mystery.libmystery.bytes.IObjectDeserialiser;
 import com.mystery.libmystery.bytes.IObjectSerialiser;
+import com.mystery.libmystery.event.EventEmitter;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.InetSocketAddress;
@@ -22,10 +23,9 @@ public class NioClient implements AutoCloseable {
     private AsynchronousObjectSocketChannel server;
     private static final int DEFAULT_BUFFER_SIZE = 4096;
     private final int readBufferSize;
-    private final Object handlerMonitor = new Object();
-    private final HashMap<Class, List<MessageHandler>> pendingHandlers = new HashMap<>();
 
-    private final DisconnectHandlerList disconnectHandlers = new DisconnectHandlerList();
+    private final EventEmitter emitter = new EventEmitter();
+    
 
     public NioClient() {
         this(Executors.newCachedThreadPool(), DEFAULT_BUFFER_SIZE);
@@ -45,24 +45,11 @@ public class NioClient implements AutoCloseable {
     }
 
     public <T extends Serializable> void onMessage(Class<T> clazz, MessageHandler<T> handler) {
-        synchronized (handlerMonitor) {
-            List<MessageHandler> handlerList = pendingHandlers.get(clazz);
-            if (handlerList == null) {
-                handlerList = new ArrayList<>();
-                pendingHandlers.put(clazz, handlerList);
-            }
-            handlerList.add(handler);
-
-            if (this.server != null) {
-                this.server.onMessage(clazz, handler);
-            }
-        }
+        emitter.on(clazz, handler);
     }
 
     public void onDisconnect(DisconnectHandler handler) {
-        synchronized (disconnectHandlers) {
-            disconnectHandlers.put(handler);
-        }
+        emitter.on("dc", handler);
     }
 
     public CallbackErrbackTuple connect(InetSocketAddress socketAddress) {
@@ -77,15 +64,10 @@ public class NioClient implements AutoCloseable {
                 AsynchronousChannelGroup group = defaultProvider.openAsynchronousChannelGroup(executor, 0);
                 this.channel = AsynchronousSocketChannel.open(group);
                 this.server = new AsynchronousObjectSocketChannel(executor, channel, IObjectSerialiser.simple, IObjectDeserialiser.simple);
-                server.setDisconnectHandlers(this.disconnectHandlers);
+                server.setEmitter(emitter); // todo ..probs ought to be a constructor arg!
                 channel.connect(socketAddress, null, new CompletionHandler<Void, Void>() {
                     @Override
                     public void completed(Void result, Void attachment) {
-                        synchronized (handlerMonitor) {
-                            pendingHandlers.forEach((k, v) -> {
-                                v.forEach((h) -> server.onMessage(k, h));   // apply any message handlers
-                            });
-                        }
                         server.startReading();
                         rv.doSuccess();
                     }

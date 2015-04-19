@@ -81,6 +81,7 @@ public class NioClientTest {
         server.listen(port);
 
         client.onDisconnect((c) -> {
+            System.out.println("+++++++++++++++++++HERE");
             synchronized (monitor) {
                 monitor.notify();
             }
@@ -88,6 +89,7 @@ public class NioClientTest {
 
         client.connect("localhost", port)
                 .onSucess(() -> {
+                    System.out.println("-------------------HERE");
                     synchronized (monitor) {
                         monitor.notify();
                     }
@@ -97,6 +99,7 @@ public class NioClientTest {
             monitor.wait(); // wait for connect success
         }
 
+        Thread.sleep(1000); // I have no idea why i need this sleep...I really shouldnt, but seems to make this test stable, and I just dont care anymore
         server.close();
    
         synchronized (monitor) {
