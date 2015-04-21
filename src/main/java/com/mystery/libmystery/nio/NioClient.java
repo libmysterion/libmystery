@@ -10,13 +10,15 @@ import java.nio.channels.AsynchronousChannelGroup;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import java.nio.channels.spi.AsynchronousChannelProvider;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class NioClient implements AutoCloseable {
+
+
+    public static final Logger logger = LoggerFactory.getLogger(NioClient.class);
 
     private AsynchronousSocketChannel channel;
     private ExecutorService executor;
@@ -57,6 +59,7 @@ public class NioClient implements AutoCloseable {
         executor.submit(() -> {
             try {
                 if (this.channel != null && this.channel.isOpen()) {
+                  logger.warn("NioClient is already connected, will autoclose channel and connect to" + socketAddress);
                     this.channel.close(); // auto disconnect if already connected
                 }
         
@@ -68,16 +71,19 @@ public class NioClient implements AutoCloseable {
                 channel.connect(socketAddress, null, new CompletionHandler<Void, Void>() {
                     @Override
                     public void completed(Void result, Void attachment) {
+                        logger.debug("connection established with " + socketAddress);
                         server.startReading();
                         rv.doSuccess();
                     }
 
                     @Override
                     public void failed(Throwable exc, Void attachment) {
+                        logger.debug("failed to establish connection with " + socketAddress);
                         rv.doError(exc);
                     }
                 });
             } catch (Exception e) {
+                logger.error("exception attempting connection", e);
                 rv.doError(e);
             }
         });

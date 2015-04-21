@@ -1,9 +1,15 @@
 package com.mystery.libmystery.event;
 
+import com.mystery.libmystery.nio.AsynchronousObjectSocketChannel;
 import java.util.HashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class EventEmitter {
 
+        
+    public static final Logger logger = LoggerFactory.getLogger(EventEmitter.class);
+    
     private final HashMap<Object, HandlerList> handlers = new HashMap<>();
     private final HashMap<Object, DualHandlerList> dualHandlers = new HashMap<>();
 
@@ -115,7 +121,10 @@ public class EventEmitter {
         synchronized (handlers) {
             handlerList = handlers.get(event);
             if (handlerList == null) {
-                // do nothing
+                // also check dual handlers before logging the warning since we might want to emit the same key with both handler types (like AsyncObjectChannel)
+                if(dualHandlers.get(event) == null) {
+                    logger.warn("unhandled event detected: " + event);
+                }
             } else if (handlerList.isEmpty()) {
                 handlers.remove(event);
             } else {
@@ -134,7 +143,9 @@ public class EventEmitter {
         synchronized (dualHandlers) {
             handlerList = dualHandlers.get(event);
             if (handlerList == null) {
-                // do nothing
+                if(handlers.get(event) == null) {   // also check on handlers before logging the warning since we might want to emit the same key with both handler types (like AsyncObjectChannel)
+                    logger.warn("unhandled event detected: " + event);
+                }
             } else if (handlerList.isEmpty()) {
                 dualHandlers.remove(event);
             } else {

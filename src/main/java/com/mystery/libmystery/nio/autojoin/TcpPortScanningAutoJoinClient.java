@@ -1,47 +1,35 @@
-/*
-
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package com.mystery.libmystery.nio.autojoin;
 
 import com.mystery.libmystery.nio.Callback;
+import com.mystery.libmystery.nio.NioClient;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.nio.channels.AsynchronousChannelGroup;
-import java.nio.channels.AsynchronousSocketChannel;
-import java.nio.channels.CompletionHandler;
-import java.nio.channels.spi.AsynchronousChannelProvider;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TcpPortScanningAutoJoinClient {
 
+    public static final Logger logger = LoggerFactory.getLogger(TcpPortScanningAutoJoinClient.class);
+
     private final ExecutorService executor = new ThreadPoolExecutor(0, 24, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
     private int port;
-    private Callback<InetSocketAddress> callback;
-    private AsynchronousChannelGroup group;
+    private Callback<NioClient> callback;
 
-    public TcpPortScanningAutoJoinClient(int port, Callback<InetSocketAddress> callback) {
+    public TcpPortScanningAutoJoinClient(int port, Callback<NioClient> callback) {
         this.port = port;
         this.callback = callback;
-        
     }
 
     public void start() throws IOException {
         List<String> subnetAddresses = getSubnetAddresses();
-        
-        AsynchronousChannelProvider p = AsynchronousChannelProvider.provider();
-        group = p.openAsynchronousChannelGroup(executor, 0);
-
         subnetAddresses.stream().forEach((a) -> attempt(a));
     }
 
@@ -65,42 +53,23 @@ public class TcpPortScanningAutoJoinClient {
 
     private void attempt(String address) {
         executor.submit(() -> {
-            try {
-                AsynchronousSocketChannel channel = AsynchronousSocketChannel.open(group);
-                System.out.println("connecting to " + address + ":" + port);
-                InetSocketAddress inetSocketAddress = new InetSocketAddress(address, port);
 
-                channel.connect(inetSocketAddress, inetSocketAddress, new CompletionHandler<Void, InetSocketAddress>() {
+            logger.debug("connecting to " + address + ":" + port);
 
-                    @Override
-                    public void completed(Void v, InetSocketAddress a) {
-                        callback.onSuccess(inetSocketAddress);
-                        close();
-                    }
+            InetSocketAddress inetSocketAddress = new InetSocketAddress(address, port);
 
-                    @Override
-                    public void failed(Throwable thrwbl, InetSocketAddress a) {
-                        System.out.println("failed: " + address);
-                        close();
-                    }
-
-                    private void close() {
-                        try {
-                            channel.close();
-                        } catch (IOException ex) {
-                            ex.printStackTrace();
-                        }
-                    }
-                });
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
+            NioClient maybeClient = new NioClient(executor);
+            maybeClient.connect(inetSocketAddress).onSucess(() -> {
+                logger.debug("connection established with " + address + ":" + port);
+                callback.onSuccess(maybeClient);
+            }).onError((e) -> {
+                try {
+                    maybeClient.close();
+                } catch (Exception ex) {
+                    logger.warn("exception closing autojoin nioclient", ex);
+                }
+            });
         });
     }
 
-    public static void main(String[] args) throws IOException {
-        new TcpPortScanningAutoJoinClient(80, (addy) -> {
-            System.out.println("found:" + addy);
-        }).start();
-    }
 }

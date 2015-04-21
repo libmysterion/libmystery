@@ -9,6 +9,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import static org.junit.Assert.fail;
 
 public class NioClientTest {
 
@@ -53,6 +54,9 @@ public class NioClientTest {
                 synchronized (monitor) {
                     monitor.notify();
                 }
+            }).onError((e) ->{
+                logger.error("testConnectingSuccess has failed", e);
+                fail("onError should not be called here");
             });
             synchronized (monitor) {
                 monitor.wait();
@@ -148,6 +152,7 @@ public class NioClientTest {
             // pingpong client test takes 3347ms for 5000 ping pongs (round trips i.e. 2 messages sent) so 10000 messages were sent....get it?
             // after some tweaks.... prebably due to removal of all the thread switching
             // pingpong client test takes 954ms for 5000 ping pongs (round trips i.e. 2 messages sent) so 10000 messages were sent....get it?
+            // pingpong client test takes 792ms for 5000 ping pongs (round trips i.e. 2 messages sent) so 10000 messages were sent....get it?
         }
 
         // todo auto reconnect option on NioClient

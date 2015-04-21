@@ -39,7 +39,6 @@ public class AsynchronousObjectSocketChannel {
     private Errback exceptionHandler;
 
     private final ArrayDeque<PendingWrite> writeQueue = new ArrayDeque<>();
-    //private final List<Callback<AsynchronousObjectSocketChannel>> disconnectHandlers = new ArrayList<>();
 
     public AsynchronousObjectSocketChannel(ExecutorService executor, AsynchronousSocketChannel channel, IObjectSerialiser serialiser, IObjectDeserialiser deserialiser, int readBufferSize) {
         this.channel = channel;
