@@ -1,6 +1,5 @@
 package com.mystery.libmystery.event;
 
-import com.mystery.libmystery.nio.AsynchronousObjectSocketChannel;
 import java.util.HashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

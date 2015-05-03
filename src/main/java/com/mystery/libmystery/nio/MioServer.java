@@ -112,6 +112,10 @@ public class MioServer implements AutoCloseable {
         return clients.stream();
     }
 
+    public void disconnectClient(AsynchronousObjectSocketChannel client) throws Exception {
+        client.close();
+    }
+    
     private void onClientDisconnect(AsynchronousObjectSocketChannel client) {
         synchronized (this.clients) {
             this.clients.remove(client);

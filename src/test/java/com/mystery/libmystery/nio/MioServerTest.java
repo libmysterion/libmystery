@@ -7,6 +7,8 @@ import java.nio.channels.AsynchronousSocketChannel;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import static org.hamcrest.CoreMatchers.is;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -530,6 +532,60 @@ public class MioServerTest {
 
             synchronized (monitor) {
                 monitor.wait();
+            }
+        }
+    }
+
+    @Test(timeout = 3500)
+    public void testdisconnectClient() throws Exception {
+        System.out.println("testDisconnectClient");
+        final Object monitor = new Object();
+        int port = 1010;
+        try (MioServer server = new MioServer(executor);) {
+            AsynchronousSocketChannel clientChannel = AsynchronousSocketChannel.open();
+
+            server.onConnection((client) -> {
+
+                client.onMessage(TestMessage.class, (m) -> {
+                    try {
+                        server.disconnectClient(client);
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
+                });
+
+                client.onDisconnect((c) -> {
+                    System.out.println("server disconnect event");
+                    synchronized (monitor) {
+                        monitor.notify();
+                    }
+
+                });
+
+            });
+
+            server.listen(port);
+            Future<Void> connect = clientChannel.connect(new InetSocketAddress("localhost", port));
+            Void get = connect.get(); // block here until connection is all done
+            Thread.sleep(500);
+            AsynchronousObjectSocketChannel clientObjectChannel = new AsynchronousObjectSocketChannel(executor, clientChannel, IObjectSerialiser.simple, IObjectDeserialiser.simple);
+
+            clientObjectChannel.onDisconnect((e) -> {
+                System.out.println("client disconnect event");
+                synchronized (monitor) {
+                    monitor.notify();
+                }
+            });
+
+            clientObjectChannel.startReading();
+            clientObjectChannel.send(new TestMessage(5, 8));
+
+            synchronized (monitor) {
+                monitor.wait(); // wait once for client event
+            }
+
+            synchronized (monitor) {
+                monitor.wait(); // and again for server event
             }
         }
     }
