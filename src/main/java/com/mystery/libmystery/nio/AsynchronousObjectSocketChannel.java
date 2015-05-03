@@ -21,7 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class AsynchronousObjectSocketChannel {
-    
+
     public static final Logger logger = LoggerFactory.getLogger(AsynchronousObjectSocketChannel.class);
 
     private final int BUFFER_SIZE;
@@ -151,7 +151,7 @@ public class AsynchronousObjectSocketChannel {
         } catch (ClassNotFoundException e) {
             logger.error("Could not deserialise message", e);
             // todo callout to some kindof erback which we can atach to client/server
-        }catch(Exception e){
+        } catch (Exception e) {
             logger.error("exception reading objects", e);
         }
 
@@ -193,7 +193,20 @@ public class AsynchronousObjectSocketChannel {
         this._onMessage(clazz, handler);
     }
 
+    private String hostName = null;
     void startReading() {
+        this.executor.submit(() -> {
+            String hostString = null;
+            try {
+                InetSocketAddress remoteAddress = (InetSocketAddress) this.channel.getRemoteAddress();
+                hostString = remoteAddress.getHostString();
+            } catch (IOException ex) {
+                hostString = "unknown-host";
+            }
+            System.out.println("found hostname ===" + hostString);
+            hostName = hostString;
+        });
+
         this.executor.submit(() -> {
             try {
                 channel.read(readBuffer, this, new CompletionHandler<Integer, AsynchronousObjectSocketChannel>() {
@@ -231,13 +244,7 @@ public class AsynchronousObjectSocketChannel {
     }
 
     public String getHostName() {
-        try {
-            InetSocketAddress remoteAddress = (InetSocketAddress) this.channel.getRemoteAddress();
-            String hostString = remoteAddress.getHostString();
-            return hostString;
-        } catch (IOException ex) {
-            return "unknown-host";
-        }
+       return hostName;
     }
 
     void close() throws Exception {
