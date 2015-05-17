@@ -60,7 +60,7 @@ public class NioClient implements AutoCloseable {
             try {
                 if (this.channel != null && this.channel.isOpen()) {
                   logger.warn("NioClient is already connected, will autoclose channel and connect to" + socketAddress);
-                    this.channel.close(); // auto disconnect if already connected
+                  this.channel.close(); // auto disconnect if already connected
                 }
         
                 AsynchronousChannelProvider defaultProvider = AsynchronousChannelProvider.provider();
