@@ -17,6 +17,7 @@ public abstract class FXView<Controller> {
 
     public FXView() {
         if (!getClass().getSimpleName().endsWith("View")) {
+            log.error("An FXView subclass must be named with the \"View\" suffix e.g. MysteryView");
             throw new IllegalStateException("An FXView subclass must be named with the \"View\" suffix e.g. MysteryView");
         }
         injector = new Injector();
@@ -38,6 +39,7 @@ public abstract class FXView<Controller> {
             fxmlLoader.setControllerFactory((clazz) -> injector.create(clazz));
             InputStream fxmlStream = getClass().getResourceAsStream(fxmlView);
             if(fxmlStream == null){
+                log.error("could not locate .fxml resource [" + fxmlView.replaceAll("/", ".").substring(1) + "]");
                 throw new FXViewException("could not locate .fxml resource [" + fxmlView.replaceAll("/", ".").substring(1) + "]");
             }
             fxmlLoader.load(fxmlStream);

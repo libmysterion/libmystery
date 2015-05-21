@@ -5,13 +5,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.function.Function;
-import java.util.logging.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Injector {
 
-    public static final Logger logger = LoggerFactory.getLogger(Injector.class);
+    public static final Logger log = LoggerFactory.getLogger(Injector.class);
 
     private final HashMap<Class, Object> singletons = new HashMap<>();
     private final HashMap<Class, Function<Class, Object>> instanceFactories = new HashMap<>();
@@ -89,6 +88,7 @@ public class Injector {
         try {
             injectObject(instance);
         } catch (IllegalAccessException ex) {
+            log.error("Could not instantiate class : " + clazz.getSimpleName(), ex);
             throw new InjectionException("Could not instantiate class : " + clazz.getSimpleName(), ex);
         }
        
@@ -113,6 +113,7 @@ public class Injector {
         try {
             return clazz.newInstance();
         } catch (InstantiationException | IllegalAccessException ex) {
+            log.error("Could not instantiate class : " + clazz.getSimpleName(), ex);
             throw new InjectionException("Could not instantiate class : " + clazz.getSimpleName(), ex);
         }
     }
@@ -126,6 +127,7 @@ public class Injector {
                     method.setAccessible(true);
                     method.invoke(instance);
                 } catch (IllegalArgumentException | InvocationTargetException | IllegalAccessException ex) {
+                    log.error("Error invoking @PostConstruct on class" + instance.getClass().getName(), ex);
                     throw new InjectionException(ex);
                 } finally {
                      method.setAccessible(originalAccessible);
