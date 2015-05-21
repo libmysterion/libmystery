@@ -203,7 +203,6 @@ public class AsynchronousObjectSocketChannel {
             } catch (IOException ex) {
                 hostString = "unknown-host";
             }
-            System.out.println("found hostname ===" + hostString);
             hostName = hostString;
         });
 
