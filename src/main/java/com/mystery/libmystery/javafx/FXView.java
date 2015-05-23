@@ -1,6 +1,7 @@
 package com.mystery.libmystery.javafx;
 
 import com.mystery.libmystery.injection.Injector;
+import com.mystery.libmystery.injection.InjectorFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import org.slf4j.LoggerFactory;
@@ -9,18 +10,22 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import org.slf4j.Logger;
 
-public abstract class FXView<Controller> {
+ public abstract class FXView<Controller> {
 
     private Injector injector;
     protected FXMLLoader fxmlLoader;
     private static final Logger log = LoggerFactory.getLogger(FXView.class);
 
-    public FXView() {
+    public FXView(){
+        this(InjectorFactory.getInstance());
+    }
+    
+    public FXView(Injector injector) {
         if (!getClass().getSimpleName().endsWith("View")) {
             log.error("An FXView subclass must be named with the \"View\" suffix e.g. MysteryView");
             throw new IllegalStateException("An FXView subclass must be named with the \"View\" suffix e.g. MysteryView");
         }
-        injector = new Injector();
+        this.injector = injector;
     }
 
     private void load() {
