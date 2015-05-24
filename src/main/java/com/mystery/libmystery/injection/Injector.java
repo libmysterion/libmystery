@@ -14,9 +14,9 @@ public class Injector {
 
     private final HashMap<Class, Object> singletons = new HashMap<>();
     private final HashMap<Class, Function<Class, Object>> instanceFactories = new HashMap<>();
-    private Function<String, String> propertySource = (s) -> null;
+    private Function<String, Object> propertySource = (s) -> null;
 
-    public void setPropertySource(Function<String, String> propertySource) {
+    public void setPropertySource(Function<String, Object> propertySource) {
         this.propertySource = propertySource;
     }
 
@@ -42,25 +42,25 @@ public class Injector {
         }
     }
 
-    private void injectFields(Field field, Object object) throws IllegalAccessException {
+    private void injectFields(Field field, Object injectee) throws IllegalAccessException {
         if (field.getAnnotation(Inject.class) != null) {
             Class fieldClass = field.getType();
             Object singleton = singletons.get(fieldClass);
             if (singleton != null) {
-                setField(field, singleton, object);
+                setField(field, singleton, injectee);
             } else {
-                setField(field, create(fieldClass), object);
+                setField(field, create(fieldClass), injectee);
             }
         }
     }
     
    
-    private void injectProperties(Field field, Object object) throws IllegalAccessException {
+    private void injectProperties(Field field, Object injectee) throws IllegalAccessException {
         Property annotation = field.getAnnotation(Property.class);
         if (annotation != null) {
             String propertyKey = annotation.value().isEmpty() ? field.getName() : annotation.value();
-            String propertyValue = propertySource.apply(propertyKey);
-            setField(field, propertyValue, object);
+            Object propertyValue = propertySource.apply(propertyKey);
+            setField(field, propertyValue, injectee);
         }
     }
 
@@ -136,8 +136,14 @@ public class Injector {
         }
     }
 
-}
+    /*
+    * This API allows us to choose to cache a singleton that does not have the @Singleton annotation e.g. third party API objects
+    */
+    public <T> void setSingleton(Class<T> clazz, T instance) {
+        this.singletons.put(clazz, instance);
+    }
 
+}
 
 class InjectionException extends RuntimeException {
 
