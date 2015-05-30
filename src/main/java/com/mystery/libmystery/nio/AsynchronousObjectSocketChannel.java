@@ -242,6 +242,7 @@ public class AsynchronousObjectSocketChannel {
 
     }
 
+    @Deprecated
     public String getHostName() {
        return hostName;
     }

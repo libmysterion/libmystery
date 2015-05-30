@@ -44,6 +44,20 @@ public class InjectorTest {
         InjectorTest test = injector.create(InjectorTest.class);
         assertTrue(test.testGuy.ran);
     }
+    
+    @Test
+    public void createInstance_shouldInvokePostConstructAnnotatedMethodsOnSingletons() {
+        Injector injector = new Injector();
+        TestSingleton test = injector.create(TestSingleton.class);
+        assertTrue(test.postConstructCalled);
+    }
+    
+     @Test
+    public void createInstance_shouldInvokePostConstructAnnotatedMethodsOnInjectedSingletons() {
+        Injector injector = new Injector();
+        TestSingletonMonsterChild test = injector.create(TestSingletonMonsterChild.class);
+        assertTrue(test.postConstructCalled);
+    }
 
     @Test
     public void createInstance_shouldInjectPropeties() {
@@ -142,6 +156,29 @@ public class InjectorTest {
         assertNotNull(test.monsterChild);               // and we got the real impl for everything else     
     }
 
+    // or maybe not....
+//    @Test
+//    public void cirecular_Singletons_should_create_references_to_each_other() {
+//        Injector injector = new Injector();
+//        SingletonCircleLeft left = injector.create(SingletonCircleLeft.class);
+//        SingletonCircleRight right = injector.create(SingletonCircleRight.class);
+//        assertThat(left.right, is(right));
+//        assertThat(right.left, is(left));
+//    }
+}
+
+@Singleton
+class SingletonCircleLeft {
+
+    @Inject
+    SingletonCircleRight right;
+}
+
+@Singleton
+class SingletonCircleRight {
+
+    @Inject
+    SingletonCircleLeft left;
 }
 
 class TestInjectable {
@@ -170,6 +207,13 @@ class InstanceCounter {
 @Singleton
 class TestSingleton extends InstanceCounter {
 
+    boolean postConstructCalled = false;
+    
+    @PostConstruct
+    private void go(){
+        postConstructCalled = true;
+    }
+    
 }
 
 class TestNonSingleton extends InstanceCounter {
@@ -203,7 +247,14 @@ class TestSingletonMonsterChild extends InstanceCounter {
 
     @Inject
     TestInjectable injectable;
-
+    
+    boolean postConstructCalled = false;
+    
+    @PostConstruct
+    private void go(){
+        postConstructCalled = true;
+    }
+    
 }
 
 class TestMonsterChild extends InstanceCounter {

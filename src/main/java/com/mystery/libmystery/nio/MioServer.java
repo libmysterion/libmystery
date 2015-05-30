@@ -16,9 +16,13 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Stream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MioServer implements AutoCloseable {
 
+    private static final Logger log = LoggerFactory.getLogger(MioServer.class);
+    
     private AsynchronousServerSocketChannel channel;
     private ExecutorService executor;
     private EventEmitter emitter = new EventEmitter();
@@ -62,6 +66,7 @@ public class MioServer implements AutoCloseable {
         AsynchronousChannelProvider defaultProvider = AsynchronousChannelProvider.provider();
         AsynchronousChannelGroup group = defaultProvider.openAsynchronousChannelGroup(executor, 0);
         this.channel = AsynchronousServerSocketChannel.open(group).bind(socketAddress);
+        log.info("Server listening on " + socketAddress.getPort());
         this.acceptConnection();
     }
 
