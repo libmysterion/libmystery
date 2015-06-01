@@ -8,6 +8,8 @@ import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -24,35 +26,42 @@ public class TcpPortScanningAutoJoinClient {
     private int port;
     private Callback<NioClient> callback;
 
-    private CountDownLatch failureLatch;
-    private Thread retryThread;
+    private CountDownLatch latch;
+    private Thread rescanThread;
+    
+    private Map<String, Boolean> connectedMap = new ConcurrentHashMap<>();
     
     public TcpPortScanningAutoJoinClient(int port, Callback<NioClient> callback) {
         this.port = port;
         this.callback = callback;
     }
 
+    
     public void start() throws IOException {
         List<String> subnetAddresses = getSubnetAddresses();
-        failureLatch = new CountDownLatch(subnetAddresses.size());
-        subnetAddresses.stream().forEach((a) -> attempt(a));
-        retryThread = new Thread(()-> {
+        subnetAddresses.stream().forEach((ip) -> connectedMap.put(ip, false));
+        performScan();
+    }
+    
+    private void performScan(){
+    
+        latch = new CountDownLatch(connectedMap.size());
+        connectedMap.entrySet().stream()
+                .filter((e) -> !e.getValue())
+                .forEach((e) -> attempt(e.getKey()));
+       
+        // once all have been processed then start again
+        // but do not attempt to connect to ones which we got a connection already
+        rescanThread = new Thread(()-> {
             try {
-                
-                failureLatch.await();// this gets blocked forever unless all fail
-                
-                // all have failed so retry
-                logger.debug("all connections failed - retry");
-                start();            
+                latch.await();// this gets blocked until all have succeeded or failed
+                logger.debug("retry port scan");
+                performScan();            
             } catch (InterruptedException ex) {
-                // we interupt if there is a success
                 logger.debug("retry thread interrupted - ending");
-            } catch (IOException ex) {
-                // wierd!
-                logger.error("error getting subnet addresses", ex);
             }
         });
-        retryThread.start();
+        rescanThread.start();
     }
 
     private String getMyAddress() throws UnknownHostException {
@@ -84,10 +93,15 @@ public class TcpPortScanningAutoJoinClient {
             maybeClient.connect(inetSocketAddress).onSucess(() -> {
                 logger.debug("connection established with " + address + ":" + port);
                 callback.onSuccess(maybeClient);
-                retryThread.interrupt();
+                connectedMap.put(address, Boolean.TRUE);
+                latch.countDown();
+                maybeClient.onDisconnect((c)-> {
+                    connectedMap.put(address, Boolean.FALSE);
+                });
             }).onError((e) -> {
-                
-                failureLatch.countDown();
+
+                connectedMap.put(address, Boolean.FALSE);
+                latch.countDown();
                 
                 try {
                     maybeClient.close();
@@ -101,6 +115,6 @@ public class TcpPortScanningAutoJoinClient {
     // use this before any connection has been found, before we hand off the executor to the client
     public void stop() {
         executor.shutdownNow();
-        retryThread.interrupt();
+        rescanThread.interrupt();
     }
 }
