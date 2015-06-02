@@ -85,7 +85,7 @@ public class TcpPortScanningAutoJoinClient {
     private void attempt(String address) {
         executor.submit(() -> {
 
-            logger.debug("connecting to " + address + ":" + port);
+            logger.trace("connecting to " + address + ":" + port);
 
             InetSocketAddress inetSocketAddress = new InetSocketAddress(address, port);
 
